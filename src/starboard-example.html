@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+  <head>
+  </head>
+
+  <body>
+
+	<div id="mount-point"></div>
+
+	<script type="module">
+		
+		import {StarboardEmbed} from "https://cdn.jsdelivr.net/npm/starboard-wrap/dist/index.js"
+		const embed = new StarboardEmbed({
+			notebookContent: "# %% [javascript]\n3+5\n",
+			//src: "https://cdn.starboard.gg/npm/starboard-notebook@0.13.2/dist/index.html",
+			src: "https://unpkg.com/starboard-notebook@0.15.7/dist/index.html",
+			onSaveMessage: (payload) => {
+				console.log('save', {payload})
+				document.getElementById('sources').innerText = 'Save:\n' + payload.content
+			},
+			onContentUpdateMessage: (payload) => {
+				console.log('onContentUpdate', {payload})
+				document.getElementById('sources').innerText = 'Content update:\n' + payload.content
+			},
+			onMessage: (payload) => {
+				console.log('message', {payload})
+			},
+		});
+		console.log({embed})
+
+		const mount = document.querySelector("#mount-point");
+		mount.innerHTML = '' // clear content
+		mount.appendChild(embed);
+	</script>
+  </body>
+</html>
