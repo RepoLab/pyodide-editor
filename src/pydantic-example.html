@@ -1,0 +1,138 @@
+<!doctype html>
+<html>
+
+<head>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.14.0/src-noconflict/ace.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.14.0/src-noconflict/mode-json.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.14.0/src-noconflict/mode-python.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.14.0/src-noconflict/mode-sh.js"></script>
+</head>
+
+<body>
+  <p>
+    The input schema. Click 'Generate Python Code' to generate (new) python code with <a href="https://koxudaxi.github.io/datamodel-code-generator/">datamodel-code-generator</a>.
+  </p>
+  <div id="schema" style="width: 49%;" rows="15"></div>
+  <button onclick="generatePython()">Generate Python Code</button>
+  <br />
+  <br />
+  <p>
+    The generated python code. You can add & execute any Python code. Just enter something below and
+    click the 'Run Python Code' button.
+  </p>
+  <div id="code" style="width: 49%;" rows="15"></div>
+ 
+  <button onclick="evaluatePython()">Run Python Code</button>
+  <br />
+  <br />
+  <div>Debug Console</div>
+  <div id="output" style="width: 100%;" rows="6" disabled></div>
+
+  <script type="text/javascript">
+    const schema = ace.edit('schema', {mode: 'ace/mode/json', maxLines: Infinity, minLines: 5}); //document.getElementById("schema");
+    const output = ace.edit('output', {mode: 'ace/mode/sh', maxLines: Infinity, minLines: 5}); //document.getElementById("output");
+    const code = ace.edit('code', {mode: 'ace/mode/python', maxLines: Infinity, minLines: 5}); //document.getElementById("code");
+
+    const default_schema = {
+      "title": "A",
+      "description": "A test class",
+      "required": ["p1"],
+      "properties": {
+        "p1": {
+          "type": "integer"
+        },
+        "p2": {
+          "type": "string",
+          "default": "some value"
+        }
+      }
+    }
+    schema.setValue(JSON.stringify(default_schema, null, 2));
+    const codegen_code = `
+from pydantic import BaseModel
+import json
+from datamodel_code_generator import DataModelType, InputFileType, generate
+from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+
+import js
+
+schema =  js.window.ace.edit("schema").getValue()
+
+parser = JsonSchemaParser(
+    schema,
+    field_include_all_keys=True,
+    # use_default = True,
+    enum_field_as_literal="all",
+    use_title_as_name=True,
+    use_schema_description=True,
+    use_field_description=True,
+    encoding="utf-8",
+    use_double_quotes=True,
+    collapse_root_models=True,
+    reuse_model=True,
+)
+content = str(parser.parse())
+content = content + "\\nprint(A(p1=1))"
+
+js.window.ace.edit("code").setValue(content)
+`
+
+    function addToOutput(s) {
+      //output.value += ">>>" + code.value + "\n" ;
+      if (s) output.setValue(output.getValue() + s + "\n");
+    }
+    function stdOut(s) {
+      //console.log("StdOut", s);
+      output.setValue(output.getValue() + s + "\n");
+    }
+
+    code.setValue("# Initializing...\n");
+
+    output.setValue("Initializing...\n");
+    // init Pyodide
+    async function main() {
+      let pyodide = await loadPyodide({
+        stdout: stdOut,
+        stderr: stdOut,
+      });
+      await pyodide.loadPackage("pydantic");
+      await pyodide.loadPackage("micropip");
+      const micropip = pyodide.pyimport("micropip");
+      //await pyodide.loadPackage(genson);
+      //await micropip.install(genson);
+      //await micropip.install("datamodel-code-generator");
+      // see: https://github.com/wolverdude/GenSON/issues/73
+      await micropip.install("datamodel-code-generator-genson-wheel");
+      addToOutput("Ready!\n");
+      return pyodide;
+    }
+    let pyodideReadyPromise = main();
+
+
+
+    async function generatePython() {
+      let pyodide = await pyodideReadyPromise;
+      try {
+        let output = pyodide.runPython(codegen_code);
+        //addToOutput(output);
+      } catch (err) {
+        addToOutput(err);
+      }
+    }
+
+    async function evaluatePython() {
+      let pyodide = await pyodideReadyPromise;
+      try {
+        let output = pyodide.runPython(code.getValue());
+        addToOutput(output);
+      } catch (err) {
+        addToOutput(err);
+      }
+    }
+
+    generatePython();
+  </script>
+</body>
+
+</html>
